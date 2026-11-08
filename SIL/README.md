@@ -151,3 +151,27 @@ ctest --test-dir SIL/cpp/build -C Release --output-on-failure
 | 5556 | Vizard DirectComm |
 | 5557 | SIL plant duplex (sensors in, status/RW/MTB out) |
 | 5558 | Operator telecommands (`tc_terminal.py` → `applyTelecommand`) |
+
+## CCSDS status capture
+
+Set `ADCS_CCSDS_STATUS_FILE` to a new path before starting the normal
+Basilisk SIL scenario. Each valid FSW status is recorded as a CCSDS Space
+Packet. The existing SIL TCP exchange remains in place. Use a different
+path for each run. With no environment variable, capture is disabled.
+
+```powershell
+$env:ADCS_CCSDS_STATUS_FILE = "adcs-status.ccsds"
+# Start SIL as described above, then decode its output:
+python -m pip install -r SIL/requirements-ccsds.txt
+python -m SIL.ccsds_status adcs-status.ccsds
+python -m unittest discover -s tests -p test_ccsds_status.py
+```
+
+The local test APID is `0x321` with a 14-bit per-capture sequence counter.
+The fixed-length payload contains the original SIL sequence, simulation time
+and FSW mode, validity, gyro bias, health and command acknowledgment.
+This is a SIL packet stream for ground-segment development. It does not
+include transfer frames, mission timestamps or RF modulation.
+
+[CCSDSPy fork](https://github.com/theChosen16/ccsdspy) ·
+[Integration roadmap](https://github.com/theChosen16/agentic_workflow/pull/63)
