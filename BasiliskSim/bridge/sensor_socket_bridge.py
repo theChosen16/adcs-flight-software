@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+import os
 import socket
+from pathlib import Path
 from typing import Sequence
 
 from Basilisk.architecture import messaging, sysModel
@@ -12,6 +14,7 @@ from Basilisk.utilities import macros
 import numpy as np
 
 from BasiliskSim.bridge.battery_soc_model import BatterySocModel
+from BasiliskSim.bridge.ccsds_status import CcsdsStatusCapture
 from BasiliskSim.bridge.sil_protocol import (
     COMMAND_PACKET_SIZE,
     PACKET_FSW_ATTITUDE,
@@ -89,6 +92,8 @@ class SensorSocketBridge(sysModel.SysModel):
         self.boot_standby_s = float(boot_standby_s)
         self._rng = np.random.default_rng()
 
+        capture_path = os.environ.get("ADCS_CCSDS_STATUS_FILE")
+        self._status_capture = CcsdsStatusCapture(Path(capture_path)) if capture_path else None
         self.sock: socket.socket | None = None
         self.rx_buffer = bytearray()
         self.last_sent_ns = 0
@@ -230,6 +235,8 @@ class SensorSocketBridge(sysModel.SysModel):
                         f"SIL FSW mode={name} t={cmd['timestamp_s']:.1f}s "
                         f"SOC={self.battery.soc:.3f}"
                     )
+            if self._status_capture is not None:
+                self._status_capture.write(cmd)
             self._last_status = cmd
             return
 
@@ -298,6 +305,8 @@ class SensorSocketBridge(sysModel.SysModel):
         )
 
     def _close_socket(self) -> None:
+        if self._status_capture is not None:
+            self._status_capture.close()
         if self.sock is not None:
             try:
                 self.sock.close()
